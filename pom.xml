@@ -4,7 +4,7 @@
   <groupId>com.cultofbits.es.plugin</groupId>
   <artifactId>weighted-mean</artifactId>
   <packaging>jar</packaging>
-  <version>0.1.0</version>
+  <version>0.2.0-SNAPSHOT</version>
 
   <name>weighted-mean</name>
 
@@ -15,7 +15,7 @@
 
   <scm>
     <developerConnection>scm:git:file://.</developerConnection>
-    <tag>Release-0.1.0</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <distributionManagement>
