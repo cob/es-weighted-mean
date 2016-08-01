@@ -4,13 +4,20 @@
   <groupId>com.cultofbits.es.plugin</groupId>
   <artifactId>weighted-mean</artifactId>
   <packaging>jar</packaging>
-  <version>0.2.0-SNAPSHOT</version>
+  <!-- IMPORTANT: should be the same has the elasticsearch version + some qualifier: SNAPSHOT, -1, etc. -->
+  <version>2.3.1-SNAPSHOT</version>
 
   <name>weighted-mean</name>
+  <description>calculating weighted means</description>
 
   <properties>
-    <elasticsearch.version>1.4.4</elasticsearch.version>
-    <metrics.version>3.0.1</metrics.version>
+    <elasticsearch.plugin.name>weighted-mean-agg</elasticsearch.plugin.name>
+    <elasticsearch.plugin.classname>com.cultofbits.es.weightedmean.WeightedMeanPlugin</elasticsearch.plugin.classname>
+
+    <!-- IMPORTANT: should be kept in sync with the project version above -->
+    <elasticsearch.version>2.3.1</elasticsearch.version>
+
+    <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
   <scm>
@@ -47,9 +54,9 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
-          <encoding>${project.build.sourceEncoding}</encoding>
+          <source>${maven.compiler.target}</source>
+          <target>${maven.compiler.target}</target>
+          <encoding>utf-8</encoding>
         </configuration>
       </plugin>
 
