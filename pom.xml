@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.cultofbits.es.plugin</groupId>
-  <artifactId>weighted-mean</artifactId>
+  <artifactId>weighted-mean-agg</artifactId>
   <packaging>jar</packaging>
   <!-- IMPORTANT: should be the same has the elasticsearch version + some qualifier: SNAPSHOT, -1, etc. -->
   <version>2.3.1-SNAPSHOT</version>
