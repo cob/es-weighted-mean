@@ -1,16 +1,22 @@
 package com.cultofbits.es.weightedmean;
 
-import org.apache.lucene.index.AtomicReaderContext;
+import org.apache.lucene.index.LeafReaderContext;
 import org.elasticsearch.common.lease.Releasables;
+import org.elasticsearch.common.util.BigArrays;
 import org.elasticsearch.common.util.DoubleArray;
 import org.elasticsearch.index.fielddata.SortedNumericDoubleValues;
 import org.elasticsearch.search.aggregations.Aggregator;
 import org.elasticsearch.search.aggregations.InternalAggregation;
+import org.elasticsearch.search.aggregations.LeafBucketCollector;
+import org.elasticsearch.search.aggregations.LeafBucketCollectorBase;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregator;
+import org.elasticsearch.search.aggregations.pipeline.PipelineAggregator;
 import org.elasticsearch.search.aggregations.support.AggregationContext;
 import org.elasticsearch.search.aggregations.support.ValuesSource;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 public class WeightedMeanAggregator extends NumericMetricsAggregator.SingleValue {
 
@@ -21,85 +27,95 @@ public class WeightedMeanAggregator extends NumericMetricsAggregator.SingleValue
     private DoubleArray sumsOfProducts;
     private DoubleArray sumsOfWeights;
 
-    private SortedNumericDoubleValues values;
-    private SortedNumericDoubleValues weights;
+    // todo jone ver se isto está a funcionar...
 
 
-
-    protected WeightedMeanAggregator(String name, long estimatedBucketsCount,
+    protected WeightedMeanAggregator(String name,
                                      ValuesSource.Numeric valuesSource, ValuesSource.Numeric weightsSource,
-                                     AggregationContext context, Aggregator parent) {
-        super(name, estimatedBucketsCount, context, parent);
+                                     AggregationContext context, Aggregator parent,
+                                     List<PipelineAggregator> pipelineAggregators, Map<String, Object> metaData)
+        throws IOException {
+        super(name, context, parent, pipelineAggregators, metaData);
+
         this.valuesSource = valuesSource;
         this.weightsSource = weightsSource;
-        if(valuesSource != null && weightsSource != null){
-            final long initialSize = estimatedBucketsCount < 2 ? 1 : estimatedBucketsCount;
-            sumsOfProducts = bigArrays.newDoubleArray(initialSize, true);
-            sumsOfWeights = bigArrays.newDoubleArray(initialSize, true);
+
+        if (valuesSource != null && weightsSource != null) {
+            final BigArrays bigArrays = context.bigArrays();
+
+            sumsOfProducts = bigArrays.newDoubleArray(1, true);
+            sumsOfWeights = bigArrays.newDoubleArray(1, true);
 
         }
     }
 
     @Override
-    public boolean shouldCollect() {
-        return valuesSource != null && weightsSource != null;
-    }
+    protected LeafBucketCollector getLeafCollector(LeafReaderContext ctx, LeafBucketCollector sub) throws IOException {
 
-    @Override
-    public void setNextReader(AtomicReaderContext reader) {
-        values = valuesSource.doubleValues();
-        weights = weightsSource.doubleValues();
-    }
-
-    @Override
-    public void collect(int docId, long bucketOrdinal) throws IOException {
-        sumsOfProducts = bigArrays.grow(sumsOfProducts, bucketOrdinal + 1);
-        sumsOfWeights = bigArrays.grow(sumsOfWeights, bucketOrdinal + 1);
-
-        weights.setDocument(docId);
-        final int weightCount = weights.count();
-        double weight = 0;
-        for (int i = 0; i < weightCount; i++) {
-            weight += weights.valueAt(i);
-        }
-        weight = weight / weightCount; //should only be a single value, if not we'll use the avg
-
-        values.setDocument(docId);
-        final int valueCount = values.count();
-        double value = 0;
-        for (int i = 0; i < valueCount; i++) {
-             value += values.valueAt(i);
+        if (valuesSource == null || weightsSource == null) {
+            return LeafBucketCollector.NO_OP_COLLECTOR;
         }
 
-        sumsOfProducts.increment(bucketOrdinal, weight * value);
-        sumsOfWeights.increment(bucketOrdinal, weight);
+        final BigArrays bigArrays = context.bigArrays();
+        SortedNumericDoubleValues values = valuesSource.doubleValues(ctx);
+        SortedNumericDoubleValues weights = weightsSource.doubleValues(ctx);
+
+        return new LeafBucketCollectorBase(sub, values) {
+            @Override
+            public void collect(int doc, long bucket) throws IOException {
+                sumsOfProducts = bigArrays.grow(sumsOfProducts, bucket + 1);
+                sumsOfWeights = bigArrays.grow(sumsOfWeights, bucket + 1);
+
+                weights.setDocument(doc);
+                final int weightCount = weights.count();
+                double weight = 0;
+                for (int i = 0; i < weightCount; i++) {
+                    weight += weights.valueAt(i);
+                }
+                weight = weight / weightCount; //should only be a single value, if not we'll use the avg
+
+                values.setDocument(doc);
+                final int valueCount = values.count();
+                double value = 0;
+                for (int i = 0; i < valueCount; i++) {
+                    value += values.valueAt(i);
+                }
+
+                sumsOfProducts.increment(bucket, weight * value);
+                sumsOfWeights.increment(bucket, weight);
+            }
+        };
     }
+
 
     @Override
     public double metric(long owningBucketOrd) {
         return valuesSource == null || weightsSource == null
                ? Double.NaN
-            : sumsOfProducts.get(owningBucketOrd) / sumsOfWeights.get(owningBucketOrd);
+               : sumsOfProducts.get(owningBucketOrd) / sumsOfWeights.get(owningBucketOrd);
     }
 
     @Override
     public InternalAggregation buildAggregation(long owningBucketOrdinal) {
-        if(valuesSource == null || weightsSource == null
-            || owningBucketOrdinal >= sumsOfWeights.size() || owningBucketOrdinal >= sumsOfProducts.size()){
+        if (valuesSource == null || weightsSource == null
+            || owningBucketOrdinal >= sumsOfWeights.size() || owningBucketOrdinal >= sumsOfProducts.size()) {
             return buildEmptyAggregation();
         }
         return new InternalWeightedMean(name,
                                         sumsOfProducts.get(owningBucketOrdinal),
-                                        sumsOfWeights.get(owningBucketOrdinal));
+                                        sumsOfWeights.get(owningBucketOrdinal),
+                                        pipelineAggregators(), metaData());
     }
 
     @Override
     public InternalAggregation buildEmptyAggregation() {
-        return new InternalWeightedMean(name, 0, 0);
+        return new InternalWeightedMean(name, 0, 0, pipelineAggregators(), metaData());
     }
 
     @Override
     protected void doClose() {
         Releasables.close(sumsOfProducts, sumsOfWeights);
     }
+
+
 }

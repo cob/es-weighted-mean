@@ -2,16 +2,18 @@ package com.cultofbits.es.weightedmean;
 
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.search.aggregations.AggregationStreams;
 import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.search.aggregations.metrics.InternalNumericMetricsAggregation;
+import org.elasticsearch.search.aggregations.pipeline.PipelineAggregator;
 import org.elasticsearch.search.aggregations.support.format.ValueFormatterStreams;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
-public class InternalWeightedMean extends InternalNumericMetricsAggregation.SingleValue {
+public class InternalWeightedMean extends InternalNumericMetricsAggregation.SingleValue implements WeightedMean {
 
     public final static Type TYPE = new Type("weighted-mean");
 
@@ -33,14 +35,20 @@ public class InternalWeightedMean extends InternalNumericMetricsAggregation.Sing
 
     InternalWeightedMean() { } // for serialization
 
-    public InternalWeightedMean(String name, double sumOfProducts, double sumOfWeights) {
-        super(name);
+    public InternalWeightedMean(String name, double sumOfProducts, double sumOfWeights, List<PipelineAggregator> pipelineAggregators,
+                                Map<String, Object> metaData) {
+        super(name, pipelineAggregators, metaData);
         this.sumOfProducts = sumOfProducts;
         this.sumOfWeights = sumOfWeights;
     }
 
     @Override
     public double value() {
+        return getValue();
+    }
+
+    @Override
+    public double getValue() {
         return sumOfProducts / sumOfWeights;
     }
 
@@ -49,20 +57,19 @@ public class InternalWeightedMean extends InternalNumericMetricsAggregation.Sing
         return TYPE;
     }
 
-
     @Override
-    public InternalAggregation reduce(ReduceContext reduceContext) {
+    public InternalAggregation doReduce(List<InternalAggregation> aggregations, ReduceContext reduceContext) {
         double sumOfProducts = 0;
         double sumOfWeights = 0;
-        for (InternalAggregation aggregation : reduceContext.aggregations()) {
+        for (InternalAggregation aggregation : aggregations) {
             sumOfProducts += ((InternalWeightedMean) aggregation).sumOfProducts;
             sumOfWeights += ((InternalWeightedMean) aggregation).sumOfWeights;
         }
-        return new InternalWeightedMean(getName(), sumOfProducts, sumOfWeights);
+        return new InternalWeightedMean(getName(), sumOfProducts, sumOfWeights, pipelineAggregators(), getMetaData());
     }
 
     @Override
-    public void readFrom(StreamInput in) throws IOException {
+    protected void doReadFrom(StreamInput in) throws IOException {
         name = in.readString();
         valueFormatter = ValueFormatterStreams.readOptional(in);
         sumOfProducts = in.readDouble();
@@ -70,7 +77,7 @@ public class InternalWeightedMean extends InternalNumericMetricsAggregation.Sing
     }
 
     @Override
-    public void writeTo(StreamOutput out) throws IOException {
+    protected void doWriteTo(StreamOutput out) throws IOException {
         out.writeString(name);
         ValueFormatterStreams.writeOptional(valueFormatter, out);
         out.writeDouble(sumOfProducts);
@@ -85,5 +92,4 @@ public class InternalWeightedMean extends InternalNumericMetricsAggregation.Sing
         }
         return builder;
     }
-
 }

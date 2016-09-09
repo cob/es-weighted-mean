@@ -1,7 +1,7 @@
 package com.cultofbits.es.weightedmean;
 
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.mapper.FieldMapper;
+import org.elasticsearch.index.mapper.MappedFieldType;
 import org.elasticsearch.search.SearchParseException;
 import org.elasticsearch.search.aggregations.Aggregator;
 import org.elasticsearch.search.aggregations.AggregatorFactory;
@@ -37,7 +37,7 @@ public class WeightedMeanParser implements Aggregator.Parser {
                 if("value".equals(currentFieldName)){
                     valueConfig = new ValuesSourceConfig<>(ValuesSource.Numeric.class);
                     String fieldName = parser.text();
-                    FieldMapper valueMapper = context.smartNameFieldMapper(fieldName);
+                    MappedFieldType valueMapper = context.smartNameFieldType(fieldName);
                     if (valueMapper != null) {
                         valueConfig.fieldContext(new FieldContext(fieldName,
                                                                   context.fieldData().getForField(valueMapper),
@@ -49,7 +49,7 @@ public class WeightedMeanParser implements Aggregator.Parser {
                 } else if("weight".equals(currentFieldName)){
                     weightConfig = new ValuesSourceConfig<>(ValuesSource.Numeric.class);
                     String fieldName = parser.text();
-                    FieldMapper weightMapper = context.smartNameFieldMapper(fieldName);
+                    MappedFieldType weightMapper = context.smartNameFieldType(fieldName);
                     if (weightMapper != null) {
                         weightConfig.fieldContext(new FieldContext(fieldName,
                                                                    context.fieldData().getForField(weightMapper),
@@ -60,7 +60,7 @@ public class WeightedMeanParser implements Aggregator.Parser {
                 }
 
             } else {
-                throw new SearchParseException(context, "Unexpected token " + token + " in [" + name + "].");
+                throw new SearchParseException(context, "Unexpected token " + token + " in [" + name + "].", parser.getTokenLocation());
             }
         }
 
