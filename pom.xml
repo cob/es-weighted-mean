@@ -5,7 +5,7 @@
   <artifactId>weighted-mean-agg</artifactId>
   <packaging>jar</packaging>
   <!-- IMPORTANT: should be the same has the elasticsearch version + some qualifier: SNAPSHOT, -1, etc. -->
-  <version>2.3.1-SNAPSHOT</version>
+  <version>2.4.4-SNAPSHOT</version>
 
   <name>weighted-mean</name>
   <description>calculating weighted means</description>
@@ -15,7 +15,7 @@
     <elasticsearch.plugin.classname>com.cultofbits.es.weightedmean.WeightedMeanPlugin</elasticsearch.plugin.classname>
 
     <!-- IMPORTANT: should be kept in sync with the project version above -->
-    <elasticsearch.version>2.3.1</elasticsearch.version>
+    <elasticsearch.version>2.4.4</elasticsearch.version>
 
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
