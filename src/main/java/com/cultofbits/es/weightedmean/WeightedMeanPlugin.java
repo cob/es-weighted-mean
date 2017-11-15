@@ -1,22 +1,20 @@
 package com.cultofbits.es.weightedmean;
 
 import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.plugins.SearchPlugin;
 import org.elasticsearch.search.SearchModule;
 
-public class WeightedMeanPlugin extends Plugin {
-    @Override
-    public String name() {
-        return "weighted-mean-plugin";
-    }
+import java.util.Collections;
+import java.util.List;
+
+public class WeightedMeanPlugin extends Plugin implements SearchPlugin {
 
     @Override
-    public String description() {
-        return "Weighted arithmetic mean aggregation";
-    }
-
-    public void onModule(SearchModule module) {
-        module.registerAggregatorParser(WeightedMeanParser.class);
-
-        InternalWeightedMean.registerStreams();
+    public List<AggregationSpec> getAggregations() {
+        return Collections.singletonList(new AggregationSpec(
+            WeightedMeanAggregationBuilder.NAME,
+            WeightedMeanAggregationBuilder::new,
+            WeightedMeanAggregationBuilder::parse
+            ));
     }
 }

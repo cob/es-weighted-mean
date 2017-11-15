@@ -5,14 +5,15 @@ import org.elasticsearch.common.lease.Releasables;
 import org.elasticsearch.common.util.BigArrays;
 import org.elasticsearch.common.util.DoubleArray;
 import org.elasticsearch.index.fielddata.SortedNumericDoubleValues;
+import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.aggregations.Aggregator;
 import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.search.aggregations.LeafBucketCollector;
 import org.elasticsearch.search.aggregations.LeafBucketCollectorBase;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregator;
 import org.elasticsearch.search.aggregations.pipeline.PipelineAggregator;
-import org.elasticsearch.search.aggregations.support.AggregationContext;
 import org.elasticsearch.search.aggregations.support.ValuesSource;
+import org.elasticsearch.search.internal.SearchContext;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,6 +25,8 @@ public class WeightedMeanAggregator extends NumericMetricsAggregator.SingleValue
     private ValuesSource.Numeric valuesSource;
     private ValuesSource.Numeric weightsSource;
 
+    private DocValueFormat format;
+
     private DoubleArray sumsOfProducts;
     private DoubleArray sumsOfWeights;
 
@@ -32,13 +35,14 @@ public class WeightedMeanAggregator extends NumericMetricsAggregator.SingleValue
 
     protected WeightedMeanAggregator(String name,
                                      ValuesSource.Numeric valuesSource, ValuesSource.Numeric weightsSource,
-                                     AggregationContext context, Aggregator parent,
+                                     DocValueFormat formatter, SearchContext context, Aggregator parent,
                                      List<PipelineAggregator> pipelineAggregators, Map<String, Object> metaData)
         throws IOException {
         super(name, context, parent, pipelineAggregators, metaData);
 
         this.valuesSource = valuesSource;
         this.weightsSource = weightsSource;
+        format = formatter;
 
         if (valuesSource != null && weightsSource != null) {
             final BigArrays bigArrays = context.bigArrays();
@@ -104,12 +108,13 @@ public class WeightedMeanAggregator extends NumericMetricsAggregator.SingleValue
         return new InternalWeightedMean(name,
                                         sumsOfProducts.get(owningBucketOrdinal),
                                         sumsOfWeights.get(owningBucketOrdinal),
+                                        format,
                                         pipelineAggregators(), metaData());
     }
 
     @Override
     public InternalAggregation buildEmptyAggregation() {
-        return new InternalWeightedMean(name, 0, 0, pipelineAggregators(), metaData());
+        return new InternalWeightedMean(name, 0, 0, format, pipelineAggregators(), metaData());
     }
 
     @Override
